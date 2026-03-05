@@ -80,12 +80,8 @@ async function initialize() {
     await browser.storage.local.set({ scanLogs: [] });
   }
 
-  // Registra script di visualizzazione messaggio (banner nell'anteprima email)
-  browser.messageDisplayScripts.register({
-    js: [{ file: "content/messageDisplay.js" }]
-  });
-
   // Traccia quale messaggio viene visualizzato in ogni tab
+  // e aggiorna l'icona nella barra dell'header del messaggio
   browser.messageDisplay.onMessageDisplayed.addListener(onMessageDisplayed);
 
   // Registra listener per nuove email
@@ -184,25 +180,9 @@ async function onMessageDisplayed(tab, message) {
   }
   messageToTabs.get(message.id).add(tab.id);
 
-  // Cerca risultati scansione per questo messaggio e invia al content script
-  // Piccolo delay per dare tempo al content script di caricarsi
+  // Aggiorna l'icona nella barra dell'header del messaggio
   const results = await getScanResultsForMessage(message);
-  if (results.length > 0) {
-    const sendToTab = async (retries) => {
-      try {
-        await browser.tabs.sendMessage(tab.id, {
-          type: "updateScanBanner",
-          results: results
-        });
-        console.log("[PDF Sanitizer Pro] Banner aggiornato via push per tab", tab.id);
-      } catch (e) {
-        if (retries > 0) {
-          setTimeout(() => sendToTab(retries - 1), 300);
-        }
-      }
-    };
-    setTimeout(() => sendToTab(3), 300);
-  }
+  await updateMessageDisplayAction(tab.id, results);
 }
 
 async function getScanResultsForMessage(message) {
@@ -259,8 +239,60 @@ async function getScanResultsForMessage(message) {
   return results;
 }
 
+async function updateMessageDisplayAction(tabId, results) {
+  // Aggiorna l'icona, il badge e il titolo del pulsante nella barra del messaggio
+  if (!results || results.length === 0) {
+    // Nessun PDF: icona grigia, nessun badge
+    browser.messageDisplayAction.setIcon({ tabId, path: "icons/status-unknown.svg" });
+    browser.messageDisplayAction.setTitle({ tabId, title: "PDF Sanitizer - Nessun allegato PDF" });
+    browser.messageDisplayAction.setBadgeText({ tabId, text: "" });
+    return;
+  }
+
+  const hasThreat = results.some(r => r.status === "threat");
+  const hasSanitizedThreat = results.some(r => r.status === "sanitized_threat");
+  const hasSanitizedClean = results.some(r => r.status === "sanitized_clean");
+  const hasClean = results.some(r => r.status === "clean");
+  const hasScanning = results.some(r => r.status === "scanning");
+  const hasError = results.some(r => r.status === "error");
+
+  if (hasThreat) {
+    browser.messageDisplayAction.setIcon({ tabId, path: "icons/status-threat.svg" });
+    browser.messageDisplayAction.setTitle({ tabId, title: "ATTENZIONE: Minacce rilevate negli allegati PDF!" });
+    browser.messageDisplayAction.setBadgeText({ tabId, text: "!" });
+    browser.messageDisplayAction.setBadgeBackgroundColor({ tabId, color: "#ef4444" });
+  } else if (hasSanitizedThreat) {
+    browser.messageDisplayAction.setIcon({ tabId, path: "icons/status-sanitized.svg" });
+    browser.messageDisplayAction.setTitle({ tabId, title: "Minacce rilevate e neutralizzate tramite sanificazione" });
+    browser.messageDisplayAction.setBadgeText({ tabId, text: "!" });
+    browser.messageDisplayAction.setBadgeBackgroundColor({ tabId, color: "#f59e0b" });
+  } else if (hasSanitizedClean) {
+    browser.messageDisplayAction.setIcon({ tabId, path: "icons/status-sanitized.svg" });
+    browser.messageDisplayAction.setTitle({ tabId, title: "Allegati PDF sanificati preventivamente" });
+    browser.messageDisplayAction.setBadgeText({ tabId, text: String(results.length) });
+    browser.messageDisplayAction.setBadgeBackgroundColor({ tabId, color: "#3b82f6" });
+  } else if (hasClean) {
+    browser.messageDisplayAction.setIcon({ tabId, path: "icons/status-safe.svg" });
+    browser.messageDisplayAction.setTitle({ tabId, title: "Allegati PDF verificati - Nessuna minaccia" });
+    browser.messageDisplayAction.setBadgeText({ tabId, text: "\u2713" });
+    browser.messageDisplayAction.setBadgeBackgroundColor({ tabId, color: "#22c55e" });
+  } else if (hasScanning) {
+    browser.messageDisplayAction.setIcon({ tabId, path: "icons/status-scanning.svg" });
+    browser.messageDisplayAction.setTitle({ tabId, title: "Scansione allegati PDF in corso..." });
+    browser.messageDisplayAction.setBadgeText({ tabId, text: "..." });
+    browser.messageDisplayAction.setBadgeBackgroundColor({ tabId, color: "#f97316" });
+  } else if (hasError) {
+    browser.messageDisplayAction.setIcon({ tabId, path: "icons/status-unknown.svg" });
+    browser.messageDisplayAction.setTitle({ tabId, title: "Errore durante la scansione degli allegati" });
+    browser.messageDisplayAction.setBadgeText({ tabId, text: "!" });
+    browser.messageDisplayAction.setBadgeBackgroundColor({ tabId, color: "#9ca3af" });
+  }
+
+  console.log("[PDF Sanitizer Pro] Icona messaggio aggiornata per tab", tabId);
+}
+
 async function pushBannerUpdate(messageId) {
-  // Aggiorna il banner in tutti i tab che mostrano questo messaggio
+  // Aggiorna l'icona nella barra del messaggio per tutti i tab che mostrano questo messaggio
   const tabIds = messageToTabs.get(messageId);
   if (!tabIds || tabIds.size === 0) return;
 
@@ -274,10 +306,7 @@ async function pushBannerUpdate(messageId) {
   const results = await getScanResultsForMessage(message);
   for (const tabId of tabIds) {
     try {
-      await browser.tabs.sendMessage(tabId, {
-        type: "updateScanBanner",
-        results: results
-      });
+      await updateMessageDisplayAction(tabId, results);
     } catch (e) {
       // Tab potrebbe essere chiuso, rimuovi dalla mappa
       tabIds.delete(tabId);
@@ -643,20 +672,49 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
       return stored.scanLogs || [];
 
     case "getDisplayedMessageResults":
-      // Richiesta dal content script: cerca i risultati per il messaggio visualizzato nel tab
-      if (sender.tab && sender.tab.id) {
-        const msgId = displayedMessages.get(sender.tab.id);
-        if (msgId) {
-          try {
-            const msg = await browser.messages.get(msgId);
-            const results = await getScanResultsForMessage(msg);
-            return { results };
-          } catch (e) {
-            return { results: [] };
+      // Richiesta dal popup message_display_action o content script
+      try {
+        // Prova prima a cercare il messaggio visualizzato tramite il tab del sender
+        let msgId = null;
+        if (sender.tab && sender.tab.id) {
+          msgId = displayedMessages.get(sender.tab.id);
+        }
+
+        // Se non trovato, cerca in tutti i tab aperti il più recente
+        if (!msgId) {
+          // Cerca il messaggio visualizzato attivo
+          const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+          for (const t of tabs) {
+            if (displayedMessages.has(t.id)) {
+              msgId = displayedMessages.get(t.id);
+              break;
+            }
           }
         }
+
+        // Fallback: prendi l'ultimo messaggio registrato
+        if (!msgId && displayedMessages.size > 0) {
+          const entries = [...displayedMessages.entries()];
+          msgId = entries[entries.length - 1][1];
+        }
+
+        if (msgId) {
+          const msg = await browser.messages.get(msgId);
+          const results = await getScanResultsForMessage(msg);
+          if (results.length === 0) {
+            // Controlla se ha PDF
+            const atts = await browser.messages.listAttachments(msgId);
+            const hasPdf = atts.some(a =>
+              a.name.toLowerCase().endsWith(".pdf") || a.contentType === "application/pdf"
+            );
+            return { results: [], noPdf: !hasPdf };
+          }
+          return { results };
+        }
+      } catch (e) {
+        console.error("[PDF Sanitizer Pro] Errore getDisplayedMessageResults:", e);
       }
-      return { results: [] };
+      return { results: [], noPdf: true };
 
     case "getConfig":
       const configStored = await browser.storage.local.get("config");

@@ -34,6 +34,14 @@
     "default_title": "Thunderbird Attachment Defender",
     "default_popup": "popup/popup.html"
   },
+  "message_display_action": {
+    "default_icon": {
+      "16": "icons/status-unknown.svg",
+      "32": "icons/status-unknown.svg"
+    },
+    "default_title": "PDF Sanitizer - Verifica allegati",
+    "default_popup": "popup/message-popup.html"
+  },
   "options_ui": {
     "page": "options/options.html",
     "open_in_tab": true

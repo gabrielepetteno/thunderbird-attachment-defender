@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 380px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      background: #1a1b2e;
+      color: #e0e0e0;
+      padding: 16px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .header-icon { font-size: 28px; }
+    .header-title { font-size: 15px; font-weight: 600; }
+    .header-subtitle { font-size: 11px; color: #8888aa; }
+
+    .status-banner {
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .status-banner .icon { font-size: 20px; }
+
+    .status-safe { background: rgba(34,197,94,0.15); border: 1px solid #22c55e; color: #4ade80; }
+    .status-threat { background: rgba(239,68,68,0.15); border: 1px solid #ef4444; color: #f87171; }
+    .status-sanitized-clean { background: rgba(59,130,246,0.15); border: 1px solid #3b82f6; color: #60a5fa; }
+    .status-sanitized-threat { background: rgba(245,158,11,0.15); border: 1px solid #f59e0b; color: #fbbf24; }
+    .status-scanning { background: rgba(249,115,22,0.15); border: 1px solid #f97316; color: #fb923c; }
+    .status-error { background: rgba(156,163,175,0.15); border: 1px solid #9ca3af; color: #d1d5db; }
+    .status-no-pdf { background: rgba(156,163,175,0.1); border: 1px solid rgba(156,163,175,0.3); color: #9ca3af; }
+
+    .file-list { margin-top: 4px; }
+    .file-item {
+      background: rgba(255,255,255,0.05);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 6px;
+    }
+    .file-name {
+      font-weight: 600;
+      font-size: 12px;
+      margin-bottom: 4px;
+      word-break: break-all;
+    }
+    .file-status {
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .file-threats {
+      font-size: 11px;
+      color: #f87171;
+      margin-top: 4px;
+    }
+    .file-threats li {
+      margin-left: 16px;
+      margin-top: 2px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-safe { background: #166534; color: #4ade80; }
+    .badge-threat { background: #7f1d1d; color: #fca5a5; }
+    .badge-sanitized { background: #1e3a5f; color: #93c5fd; }
+    .badge-scanning { background: #7c2d12; color: #fdba74; }
+    .badge-error { background: #374151; color: #d1d5db; }
+
+    .empty-state {
+      text-align: center;
+      padding: 20px;
+      color: #8888aa;
+    }
+    .empty-state .icon { font-size: 32px; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="header-icon" id="headerIcon">🛡️</span>
+    <div>
+      <div class="header-title">Stato Allegati PDF</div>
+      <div class="header-subtitle" id="headerSubtitle">Analisi di questa email</div>
+    </div>
+  </div>
+
+  <div id="statusBanner" class="status-banner" style="display:none;">
+    <span class="icon" id="bannerIcon"></span>
+    <span id="bannerText"></span>
+  </div>
+
+  <div id="fileList" class="file-list"></div>
+  <div id="emptyState" class="empty-state" style="display:none;">
+    <div class="icon">📎</div>
+    <div>Nessun allegato PDF in questa email</div>
+  </div>
+
+  <script src="message-popup.js"></script>
+</body>
+</html>
