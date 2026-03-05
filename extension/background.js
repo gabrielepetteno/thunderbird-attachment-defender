@@ -20,6 +20,8 @@
 const DEFAULT_CONFIG = {
   apiUrl: "http://YOUR_SERVER_IP:9097",
   apiKey: "CHANGE_THIS_TO_A_STRONG_SECRET_KEY",
+  vtApiKey: "",              // VirusTotal API key (opzionale)
+  vtEnabled: false,          // Attiva/disattiva controllo VirusTotal
   autoSanitize: true,        // Sanifica automaticamente i PDF pericolosi
   autoDownloadSafe: false,   // Scarica automaticamente i PDF sanificati
   showNotifications: true,   // Mostra notifiche desktop
@@ -217,9 +219,14 @@ async function performScan(fileData, task, config) {
   const formData = new FormData();
   formData.append("file", fileData, task.attachment.name);
 
+  const analyzeHeaders = { "x-api-key": config.apiKey };
+  if (config.vtEnabled && config.vtApiKey) {
+    analyzeHeaders["x-vt-api-key"] = config.vtApiKey;
+  }
+
   const response = await fetch(`${config.apiUrl}/analyze`, {
     method: "POST",
-    headers: { "x-api-key": config.apiKey },
+    headers: analyzeHeaders,
     body: formData
   });
 
@@ -279,9 +286,14 @@ async function performScanAndSanitize(fileData, task, config) {
   const formDataAnalysis = new FormData();
   formDataAnalysis.append("file", fileData, task.attachment.name);
 
+  const analyzeHeaders = { "x-api-key": config.apiKey };
+  if (config.vtEnabled && config.vtApiKey) {
+    analyzeHeaders["x-vt-api-key"] = config.vtApiKey;
+  }
+
   const analysisResponse = await fetch(`${config.apiUrl}/analyze`, {
     method: "POST",
-    headers: { "x-api-key": config.apiKey },
+    headers: analyzeHeaders,
     body: formDataAnalysis
   });
 
@@ -479,8 +491,12 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
     case "testConnection":
       try {
         const cfg = (await browser.storage.local.get("config")).config || DEFAULT_CONFIG;
+        const healthHeaders = { "x-api-key": cfg.apiKey };
+        if (cfg.vtEnabled && cfg.vtApiKey) {
+          healthHeaders["x-vt-api-key"] = cfg.vtApiKey;
+        }
         const resp = await fetch(`${cfg.apiUrl}/health`, {
-          headers: { "x-api-key": cfg.apiKey }
+          headers: healthHeaders
         });
         if (resp.ok) {
           const data = await resp.json();

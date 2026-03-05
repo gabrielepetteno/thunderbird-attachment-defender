@@ -14,6 +14,8 @@ async function loadConfig() {
 
   document.getElementById("apiUrl").value = config.apiUrl || "";
   document.getElementById("apiKey").value = config.apiKey || "";
+  document.getElementById("vtApiKey").value = config.vtApiKey || "";
+  document.getElementById("vtEnabled").checked = config.vtEnabled === true;
   document.getElementById("scanOnArrival").checked = config.scanOnArrival !== false;
   document.getElementById("autoSanitize").checked = config.autoSanitize !== false;
   document.getElementById("autoDownloadSafe").checked = config.autoDownloadSafe === true;
@@ -26,6 +28,8 @@ async function saveConfig() {
   const config = {
     apiUrl: document.getElementById("apiUrl").value.replace(/\/+$/, ""),
     apiKey: document.getElementById("apiKey").value,
+    vtApiKey: document.getElementById("vtApiKey").value,
+    vtEnabled: document.getElementById("vtEnabled").checked,
     scanOnArrival: document.getElementById("scanOnArrival").checked,
     autoSanitize: document.getElementById("autoSanitize").checked,
     autoDownloadSafe: document.getElementById("autoDownloadSafe").checked,
@@ -60,8 +64,9 @@ async function testConnection() {
 
   if (result.success) {
     const info = result.data;
+    const vtStatus = info.virustotal_enabled ? "VirusTotal: ATTIVO" : "VirusTotal: disattivato";
     showStatus(
-      `Connessione riuscita! Server: ${info.name || "PDF Sanitizer"} v${info.version || "?"} — PyMuPDF: ${info.pymupdf_version || "?"}`,
+      `Connessione riuscita! Server: ${info.name || "PDF Sanitizer"} v${info.version || "?"} — PyMuPDF: ${info.pymupdf_version || "?"} — ${vtStatus}`,
       "success"
     );
   } else {

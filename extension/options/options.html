@@ -202,6 +202,26 @@
       </div>
     </div>
 
+    <!-- VirusTotal -->
+    <div class="card">
+      <h2>🦠 VirusTotal (Opzionale)</h2>
+      <div class="field">
+        <label>API Key VirusTotal</label>
+        <input type="password" id="vtApiKey" placeholder="Lascia vuoto per disattivare">
+        <div class="hint">Ottieni una chiave gratuita su <a href="https://www.virustotal.com/gui/join-us" target="_blank" style="color:#3b82f6;">virustotal.com</a>. Controlla i PDF anche nel cloud contro 70+ antivirus.</div>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Attiva controllo VirusTotal</div>
+          <div class="toggle-desc">Invia l'hash SHA-256 del file a VirusTotal per un controllo incrociato</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="vtEnabled">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
     <!-- Comportamento -->
     <div class="card">
       <h2>🤖 Comportamento Automatico</h2>

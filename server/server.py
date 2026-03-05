@@ -120,20 +120,21 @@ def verify_api_key(x_api_key: str = Header(None)):
 # VIRUSTOTAL INTEGRATION (optional)
 # ============================================================
 
-async def check_virustotal(file_bytes: bytes, filename: str) -> dict:
+async def check_virustotal(file_bytes: bytes, filename: str, vt_key_override: str = "") -> dict:
     """
     Check file hash against VirusTotal (optional cloud cross-check).
-    Only runs if VIRUSTOTAL_API_KEY is configured.
+    Uses vt_key_override (from extension header) if provided, else falls back to server config.
     Returns a dict with vt_detected, vt_engines, vt_link or vt_error.
     """
-    if not VIRUSTOTAL_API_KEY:
+    active_vt_key = vt_key_override or VIRUSTOTAL_API_KEY
+    if not active_vt_key:
         return {"vt_enabled": False}
 
     import urllib.request
     import json as _json
 
     sha256 = hashlib.sha256(file_bytes).hexdigest()
-    headers = {"x-apikey": VIRUSTOTAL_API_KEY}
+    headers = {"x-apikey": active_vt_key}
 
     try:
         # First: check if hash already known (no upload needed)
@@ -462,15 +463,16 @@ def cleanup_files(*files):
 # ============================================================
 
 @app.get("/health")
-async def health_check(x_api_key: str = Header(None)):
+async def health_check(x_api_key: str = Header(None), x_vt_api_key: str = Header(None)):
     """Health check — confirms server is running."""
     verify_api_key(x_api_key)
+    vt_active = bool(VIRUSTOTAL_API_KEY) or bool(x_vt_api_key)
     return {
         "status": "online",
         "name": "Thunderbird Attachment Defender",
         "version": "1.0.0",
         "pymupdf_version": fitz.version[0],
-        "virustotal_enabled": bool(VIRUSTOTAL_API_KEY),
+        "virustotal_enabled": vt_active,
         "uptime_since": server_stats["start_time"],
         "stats": server_stats
     }
@@ -480,7 +482,8 @@ async def health_check(x_api_key: str = Header(None)):
 async def analyze_pdf(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    x_api_key: str = Header(None)
+    x_api_key: str = Header(None),
+    x_vt_api_key: str = Header(None)
 ):
     """
     Deep PDF threat analysis.
@@ -513,8 +516,8 @@ async def analyze_pdf(
         report["file_size"] = len(contents)
         report["analyzed_at"] = datetime.now().isoformat()
 
-        # Optional VirusTotal cloud check
-        vt_result = await check_virustotal(contents, file.filename)
+        # Optional VirusTotal cloud check (extension key overrides server config)
+        vt_result = await check_virustotal(contents, file.filename, vt_key_override=x_vt_api_key or "")
         report["virustotal"] = vt_result
         if vt_result.get("vt_detected"):
             report["threats"].append(
