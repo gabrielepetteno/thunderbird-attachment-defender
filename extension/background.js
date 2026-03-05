@@ -40,6 +40,11 @@ let stats = {
   lastScanTime: null
 };
 
+// Mappa tabId → messageId per tracciare quale messaggio è visualizzato
+let displayedMessages = new Map();
+// Mappa messageId → [tabIds] per aggiornamento push dei banner
+let messageToTabs = new Map();
+
 // ============================================================
 // INIZIALIZZAZIONE
 // ============================================================
@@ -63,6 +68,14 @@ async function initialize() {
   if (!storedLogs.scanLogs) {
     await browser.storage.local.set({ scanLogs: [] });
   }
+
+  // Registra script di visualizzazione messaggio (banner nell'anteprima email)
+  browser.messageDisplayScripts.register({
+    js: [{ file: "content/messageDisplay.js" }]
+  });
+
+  // Traccia quale messaggio viene visualizzato in ogni tab
+  browser.messageDisplay.onMessageDisplayed.addListener(onMessageDisplayed);
 
   // Registra listener per nuove email
   browser.messages.onNewMailReceived.addListener(onNewMailReceived);
@@ -141,6 +154,121 @@ async function onNewMailReceived(folder, messages) {
 }
 
 // ============================================================
+// TRACCIAMENTO MESSAGGIO VISUALIZZATO
+// ============================================================
+async function onMessageDisplayed(tab, message) {
+  // Aggiorna la mappa tab → message
+  const oldMessageId = displayedMessages.get(tab.id);
+  if (oldMessageId) {
+    const tabs = messageToTabs.get(oldMessageId);
+    if (tabs) {
+      tabs.delete(tab.id);
+      if (tabs.size === 0) messageToTabs.delete(oldMessageId);
+    }
+  }
+
+  displayedMessages.set(tab.id, message.id);
+  if (!messageToTabs.has(message.id)) {
+    messageToTabs.set(message.id, new Set());
+  }
+  messageToTabs.get(message.id).add(tab.id);
+
+  // Cerca risultati scansione per questo messaggio e invia al content script
+  const results = await getScanResultsForMessage(message);
+  if (results.length > 0) {
+    try {
+      await browser.tabs.sendMessage(tab.id, {
+        type: "updateScanBanner",
+        results: results
+      });
+    } catch (e) {
+      // Il content script potrebbe non essere ancora pronto, verrà aggiornato via polling
+    }
+  }
+}
+
+async function getScanResultsForMessage(message) {
+  const stored = await browser.storage.local.get("scanLogs");
+  const logs = stored.scanLogs || [];
+
+  // Cerca i PDF allegati di questo messaggio
+  let attachments = [];
+  try {
+    attachments = await browser.messages.listAttachments(message.id);
+  } catch (e) {
+    return [];
+  }
+
+  const pdfAttachments = attachments.filter(att =>
+    att.name.toLowerCase().endsWith(".pdf") ||
+    att.contentType === "application/pdf"
+  );
+
+  if (pdfAttachments.length === 0) return [];
+
+  const results = [];
+  for (const att of pdfAttachments) {
+    // Cerca nei log per messageId o per combinazione sender+filename
+    const logEntry = logs.find(l =>
+      (l.messageId === message.id && l.filename === att.name) ||
+      (l.sender === message.author && l.filename === att.name && l.subject === message.subject)
+    );
+
+    if (logEntry) {
+      results.push({
+        filename: att.name,
+        status: logEntry.status,
+        riskLevel: logEntry.riskLevel,
+        riskScore: logEntry.riskScore,
+        threats: logEntry.threats || [],
+        sanitized: logEntry.sanitized || false
+      });
+    } else {
+      // PDF presente ma non ancora scansionato - controlla se è in coda
+      const inQueue = scanQueue.some(q =>
+        q.messageId === message.id && q.attachment.name === att.name
+      );
+      if (inQueue || isProcessing) {
+        results.push({
+          filename: att.name,
+          status: "scanning"
+        });
+      }
+      // Se non è in coda e non c'è log, non mostriamo nulla (il messaggio potrebbe essere vecchio)
+    }
+  }
+
+  return results;
+}
+
+async function pushBannerUpdate(messageId) {
+  // Aggiorna il banner in tutti i tab che mostrano questo messaggio
+  const tabIds = messageToTabs.get(messageId);
+  if (!tabIds || tabIds.size === 0) return;
+
+  let message;
+  try {
+    message = await browser.messages.get(messageId);
+  } catch (e) {
+    return;
+  }
+
+  const results = await getScanResultsForMessage(message);
+  for (const tabId of tabIds) {
+    try {
+      await browser.tabs.sendMessage(tabId, {
+        type: "updateScanBanner",
+        results: results
+      });
+    } catch (e) {
+      // Tab potrebbe essere chiuso, rimuovi dalla mappa
+      tabIds.delete(tabId);
+      displayedMessages.delete(tabId);
+    }
+  }
+}
+
+// ============================================================
 // ELABORAZIONE CODA DI SCANSIONE
 // ============================================================
 async function processQueue() {
@@ -157,6 +285,9 @@ async function processQueue() {
       browser.browserAction.setBadgeText({ text: "..." });
       browser.browserAction.setBadgeBackgroundColor({ color: "#FFA500" });
 
+      // Mostra stato "scansione in corso" nel banner dell'email
+      await pushBannerUpdate(task.messageId);
+
       // Scarica l'allegato
       const fileData = await browser.messages.getAttachmentFile(
         task.messageId,
@@ -167,6 +298,7 @@ async function processQueue() {
       const fileSizeMB = fileData.size / (1024 * 1024);
       if (fileSizeMB > config.maxFileSizeMB) {
         await addScanLog({
+          messageId: task.messageId,
           filename: task.attachment.name,
           sender: task.sender,
           subject: task.subject,
@@ -189,6 +321,7 @@ async function processQueue() {
     } catch (err) {
       console.error(`[PDF Sanitizer Pro] Errore elaborazione ${task.attachment.name}:`, err);
       await addScanLog({
+        messageId: task.messageId,
         filename: task.attachment.name,
         sender: task.sender,
         subject: task.subject,
@@ -197,6 +330,9 @@ async function processQueue() {
         reason: `Errore: ${err.message}`,
         threats: []
       });
+
+      // Aggiorna banner con stato errore
+      await pushBannerUpdate(task.messageId);
 
       if (config.showNotifications) {
         browser.notifications.create(`error-${Date.now()}`, {
@@ -240,6 +376,7 @@ async function performScan(fileData, task, config) {
   stats.lastScanTime = new Date().toISOString();
 
   const logEntry = {
+    messageId: task.messageId,
     filename: task.attachment.name,
     sender: task.sender,
     subject: task.subject,
@@ -276,6 +413,9 @@ async function performScan(fileData, task, config) {
 
   await addScanLog(logEntry);
   await browser.storage.local.set({ stats });
+
+  // Aggiorna il banner nell'anteprima email se il messaggio è visualizzato
+  await pushBannerUpdate(task.messageId);
 }
 
 // ============================================================
@@ -325,6 +465,7 @@ async function performScanAndSanitize(fileData, task, config) {
   stats.filesSanitized++;
 
   const logEntry = {
+    messageId: task.messageId,
     filename: task.attachment.name,
     sender: task.sender,
     subject: task.subject,
@@ -374,6 +515,9 @@ async function performScanAndSanitize(fileData, task, config) {
 
   await addScanLog(logEntry);
   await browser.storage.local.set({ stats });
+
+  // Aggiorna il banner nell'anteprima email se il messaggio è visualizzato
+  await pushBannerUpdate(task.messageId);
 }
 
 // ============================================================
@@ -479,6 +623,22 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
     case "getLogs":
       const stored = await browser.storage.local.get("scanLogs");
       return stored.scanLogs || [];
+
+    case "getDisplayedMessageResults":
+      // Richiesta dal content script: cerca i risultati per il messaggio visualizzato nel tab
+      if (sender.tab && sender.tab.id) {
+        const msgId = displayedMessages.get(sender.tab.id);
+        if (msgId) {
+          try {
+            const msg = await browser.messages.get(msgId);
+            const results = await getScanResultsForMessage(msg);
+            return { results };
+          } catch (e) {
+            return { results: [] };
+          }
+        }
+      }
+      return { results: [] };
 
     case "getConfig":
       const configStored = await browser.storage.local.get("config");

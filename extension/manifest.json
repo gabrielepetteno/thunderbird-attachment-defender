@@ -15,6 +15,7 @@
   },
   "permissions": [
     "messagesRead",
+    "messagesModify",
     "accountsRead",
     "downloads",
     "menus",
