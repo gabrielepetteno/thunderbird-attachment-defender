@@ -51,10 +51,21 @@ let messageToTabs = new Map();
 async function initialize() {
   console.log("[PDF Sanitizer Pro] Avvio estensione...");
 
-  // Carica configurazione salvata
+  // Carica configurazione salvata o da file locale (per sviluppo)
   const stored = await browser.storage.local.get("config");
   if (!stored.config) {
-    await browser.storage.local.set({ config: DEFAULT_CONFIG });
+    let initialConfig = { ...DEFAULT_CONFIG };
+    try {
+      const resp = await fetch(browser.runtime.getURL("local-config.json"));
+      if (resp.ok) {
+        const localCfg = await resp.json();
+        initialConfig = { ...initialConfig, ...localCfg };
+        console.log("[PDF Sanitizer Pro] Configurazione locale caricata da local-config.json");
+      }
+    } catch (e) {
+      // local-config.json non presente, usa default
+    }
+    await browser.storage.local.set({ config: initialConfig });
   }
 
   // Carica statistiche salvate
@@ -174,16 +185,23 @@ async function onMessageDisplayed(tab, message) {
   messageToTabs.get(message.id).add(tab.id);
 
   // Cerca risultati scansione per questo messaggio e invia al content script
+  // Piccolo delay per dare tempo al content script di caricarsi
   const results = await getScanResultsForMessage(message);
   if (results.length > 0) {
-    try {
-      await browser.tabs.sendMessage(tab.id, {
-        type: "updateScanBanner",
-        results: results
-      });
-    } catch (e) {
-      // Il content script potrebbe non essere ancora pronto, verrà aggiornato via polling
-    }
+    const sendToTab = async (retries) => {
+      try {
+        await browser.tabs.sendMessage(tab.id, {
+          type: "updateScanBanner",
+          results: results
+        });
+        console.log("[PDF Sanitizer Pro] Banner aggiornato via push per tab", tab.id);
+      } catch (e) {
+        if (retries > 0) {
+          setTimeout(() => sendToTab(retries - 1), 300);
+        }
+      }
+    };
+    setTimeout(() => sendToTab(3), 300);
   }
 }
 

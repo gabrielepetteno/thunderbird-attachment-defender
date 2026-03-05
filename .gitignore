@@ -5,6 +5,9 @@
 # Server configuration (contains secrets — NEVER commit this)
 server/config.py
 
+# Extension local configuration (contains secrets — NEVER commit this)
+extension/local-config.json
+
 # Temporary files created during PDF processing
 server/temp/
 server/*.log
