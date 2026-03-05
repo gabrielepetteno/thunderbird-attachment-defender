@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 420px;
+      max-height: 550px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      overflow-y: auto;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .header .shield {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+    .header .shield.danger { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .header .title { font-size: 16px; font-weight: 700; }
+    .header .subtitle { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+    /* Stats Row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .stat-box {
+      text-align: center;
+      padding: 10px 4px;
+      background: #1e293b;
+      border-radius: 8px;
+    }
+    .stat-box .number {
+      font-size: 22px;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+    .stat-box .number.red { color: #f87171; }
+    .stat-box .number.green { color: #4ade80; }
+    .stat-box .label {
+      font-size: 10px;
+      color: #64748b;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Connection Status */
+    .connection {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: #1e293b;
+      margin: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .connection:hover { background: #334155; }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #64748b;
+    }
+    .dot.online { background: #22c55e; box-shadow: 0 0 6px #22c55e55; }
+    .dot.offline { background: #ef4444; box-shadow: 0 0 6px #ef444455; }
+    .dot.checking { background: #f59e0b; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* Scan Log */
+    .section-title {
+      padding: 10px 16px 6px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #64748b;
+      font-weight: 600;
+    }
+
+    .log-list {
+      max-height: 260px;
+      overflow-y: auto;
+      padding: 0 12px 12px;
+    }
+
+    .log-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px;
+      margin-bottom: 6px;
+      background: #1e293b;
+      border-radius: 8px;
+      border-left: 3px solid #64748b;
+      font-size: 12px;
+    }
+    .log-item.clean { border-left-color: #22c55e; }
+    .log-item.threat { border-left-color: #ef4444; }
+    .log-item.sanitized_clean { border-left-color: #38bdf8; }
+    .log-item.sanitized_threat { border-left-color: #f59e0b; }
+    .log-item.error { border-left-color: #a855f7; }
+    .log-item.skipped { border-left-color: #64748b; }
+
+    .log-icon { font-size: 18px; min-width: 24px; text-align: center; padding-top: 2px; }
+    .log-details { flex: 1; min-width: 0; }
+    .log-filename {
+      font-weight: 600;
+      color: #f1f5f9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .log-sender {
+      color: #94a3b8;
+      font-size: 11px;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .log-threats {
+      margin-top: 4px;
+      font-size: 11px;
+      color: #fbbf24;
+    }
+    .log-time {
+      font-size: 10px;
+      color: #475569;
+      white-space: nowrap;
+    }
+
+    .log-empty {
+      text-align: center;
+      padding: 30px 16px;
+      color: #475569;
+      font-size: 13px;
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      padding: 8px 12px 12px;
+    }
+    .btn {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+    }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-secondary {
+      background: #334155;
+      color: #e2e8f0;
+    }
+    .btn-secondary:hover { background: #475569; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="shield" id="headerShield">🛡️</div>
+    <div>
+      <div class="title">PDF Sanitizer Pro</div>
+      <div class="subtitle" id="headerStatus">Protezione attiva</div>
+    </div>
+  </div>
+
+  <!-- Statistiche -->
+  <div class="stats-row">
+    <div class="stat-box">
+      <div class="number" id="statScanned">0</div>
+      <div class="label">Scansionati</div>
+    </div>
+    <div class="stat-box">
+      <div class="number red" id="statThreats">0</div>
+      <div class="label">Minacce</div>
+    </div>
+    <div class="stat-box">
+      <div class="number green" id="statSanitized">0</div>
+      <div class="label">Sanificati</div>
+    </div>
+  </div>
+
+  <!-- Stato Connessione -->
+  <div class="connection" id="connectionBox" title="Clicca per testare la connessione">
+    <div class="dot checking" id="connectionDot"></div>
+    <span id="connectionText">Verifico connessione al server...</span>
+  </div>
+
+  <!-- Log Scansioni -->
+  <div class="section-title">Attività recente</div>
+  <div class="log-list" id="logList">
+    <div class="log-empty">Nessuna scansione ancora effettuata.<br>I PDF verranno controllati automaticamente.</div>
+  </div>
+
+  <!-- Bottoni -->
+  <div class="btn-row">
+    <button class="btn btn-primary" id="btnOptions">⚙️ Impostazioni</button>
+    <button class="btn btn-secondary" id="btnClearLogs">🗑️ Pulisci log</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

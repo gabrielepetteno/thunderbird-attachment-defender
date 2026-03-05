@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <path d="M64 8L16 28v32c0 28 20.8 54.4 48 60 27.2-5.6 48-32 48-60V28L64 8z" fill="url(#g)" stroke="#15803d" stroke-width="2" filter="url(#shadow)"/>
+  <path d="M42 64l14.5 14.5L88 48" fill="none" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="64" y="108" text-anchor="middle" font-size="14" font-family="Arial" font-weight="bold" fill="#15803d">PDF SAFE</text>
+</svg>

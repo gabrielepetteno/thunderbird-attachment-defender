@@ -1,0 +1,46 @@
+# ============================================================
+#  thunderbird-attachment-defender — .gitignore
+# ============================================================
+
+# Server configuration (contains secrets — NEVER commit this)
+server/config.py
+
+# Temporary files created during PDF processing
+server/temp/
+server/*.log
+server/logs/
+
+# NSSM binary (downloaded during setup)
+server/nssm.exe
+server/nssm.zip
+server/nssm_temp/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+sanitizer.log

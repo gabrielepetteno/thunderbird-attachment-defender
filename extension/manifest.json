@@ -1,0 +1,46 @@
+{
+  "manifest_version": 2,
+  "name": "Thunderbird Attachment Defender",
+  "version": "1.0.0",
+  "description": "Automatically scans and sanitizes PDF attachments in incoming emails. Protects against embedded JavaScript, macros, launch actions, phishing forms, and hidden malware. Self-hosted backend, no data sent to third parties.",
+  "developer": {
+    "name": "thunderbird-attachment-defender contributors",
+    "url": "https://github.com/YOUR_USERNAME/thunderbird-attachment-defender"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "thunderbird-attachment-defender@github",
+      "strict_min_version": "115.0"
+    }
+  },
+  "permissions": [
+    "messagesRead",
+    "accountsRead",
+    "downloads",
+    "menus",
+    "notifications",
+    "storage"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "browser_action": {
+    "default_icon": {
+      "16": "icons/icon-16.svg",
+      "32": "icons/icon-32.svg",
+      "48": "icons/icon-48.svg"
+    },
+    "default_title": "Thunderbird Attachment Defender",
+    "default_popup": "popup/popup.html"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/icon-16.svg",
+    "32": "icons/icon-32.svg",
+    "48": "icons/icon-48.svg",
+    "128": "icons/icon-128.svg"
+  }
+}
